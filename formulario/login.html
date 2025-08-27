@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>🔐 Login / Registro</title>
+  <style>
+    :root { --primary:#667eea; --bg:#f3f5f8; --card:#ffffff; }
+    * { box-sizing: border-box; }
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background: var(--bg); margin:0; padding: 24px; }
+    .wrap { max-width: 440px; margin: 0 auto; }
+    .card {
+      background: var(--card); border-radius: 16px; padding: 24px; box-shadow: 0 10px 30px rgba(0,0,0,.08);
+      margin-bottom: 24px;
+    }
+    h1 { margin:0 0 8px; font-size: 22px; }
+    p { margin:0 0 16px; color:#556; }
+    label { display:block; font-weight:600; margin:14px 0 6px; }
+    input {
+      width:100%; padding:12px 14px; border:2px solid #e6e8ee; border-radius:10px; font-size:15px; outline: none;
+    }
+    input:focus { border-color: var(--primary); }
+    .btn {
+      margin-top: 14px; width:100%; padding:12px 16px; border:none; border-radius:10px; cursor:pointer; font-weight:700; color:#fff;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+    }
+    .btn:hover { filter: brightness(1.05); transform: translateY(-1px); }
+    .hint { font-size:12px; color:#667; margin-top:8px; }
+    .sep { height:1px; background:#e9edf2; margin:24px 0; }
+    .note { font-size:12px; color:#495; background:#e6fff1; border:1px solid #b8f2d0; padding:10px 12px; border-radius:8px; }
+    .err { font-size:13px; color:#a00; background:#ffe9e9; border:1px solid #ffc9c9; padding:10px 12px; border-radius:8px; margin-top:10px; }
+    .ok { font-size:13px; color:#155724; background:#d4edda; border:1px solid #c3e6cb; padding:10px 12px; border-radius:8px; margin-top:10px; }
+    small { color:#789; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>🔐 Sistema de Login (Local)</h1>
+      <p>Pruebas con <strong>localStorage</strong>. El primer usuario creado será <strong>admin</strong>.</p>
+      <div class="note">⚠️ Solo para pruebas: las contraseñas se guardan en texto plano en tu navegador.</div>
+    </div>
+
+    <!-- Registro -->
+    <div class="card">
+      <h1>📝 Registrarse</h1>
+      <label>Nombre</label>
+      <input id="regName" type="text" placeholder="Juan Pérez" />
+      <label>Email</label>
+      <input id="regEmail" type="email" placeholder="juan@empresa.com" />
+      <label>Contraseña</label>
+      <input id="regPassword" type="password" placeholder="Mínimo 6 caracteres" />
+      <button class="btn" onclick="register()">Crear cuenta</button>
+      <div id="regMsg"></div>
+      <div class="hint">Ya tienes cuenta? Usa el bloque de abajo para iniciar sesión.</div>
+    </div>
+
+    <!-- Login -->
+    <div class="card">
+      <h1>🔑 Iniciar sesión</h1>
+      <label>Email</label>
+      <input id="logEmail" type="email" placeholder="tu@empresa.com" />
+      <label>Contraseña</label>
+      <input id="logPassword" type="password" placeholder="Tu contraseña" />
+      <button class="btn" onclick="login()">Entrar</button>
+      <div id="logMsg"></div>
+      <div class="hint"><small>Tip: si ya te registraste, usa los mismos datos aquí 😉</small></div>
+    </div>
+
+    <div class="card">
+      <p class="hint">Si ya hay una sesión activa te mandaremos directo al formulario.</p>
+    </div>
+  </div>
+
+  <script>
+    // --- UserManager con las mismas claves que tu código original ---
+    class UserManager {
+      constructor() {
+        this.users = this.loadUsers();      // { [email]: user }
+        this.session = this.loadSession();  // user | null
+      }
+      loadUsers() {
+        try { return JSON.parse(localStorage.getItem('appUsers')) || {}; }
+        catch { return {}; }
+      }
+      saveUsers() {
+        localStorage.setItem('appUsers', JSON.stringify(this.users));
+      }
+      loadSession() {
+        try { return JSON.parse(localStorage.getItem('currentSession')) || null; }
+        catch { return null; }
+      }
+      saveSession(user) {
+        localStorage.setItem('currentSession', JSON.stringify(user));
+      }
+      clearSession() {
+        localStorage.removeItem('currentSession');
+      }
+      register(name, email, password) {
+        if (!name || !email || !password) throw new Error('Completa todos los campos');
+        if (password.length < 6) throw new Error('La contraseña debe tener al menos 6 caracteres');
+        if (this.users[email]) throw new Error('El usuario ya existe');
+        const isFirst = Object.keys(this.users).length === 0;
+        const user = {
+          id: Date.now().toString(),
+          name, email, password,
+          role: isFirst ? 'admin' : 'user',
+          createdAt: new Date().toISOString(),
+          clickupToken: '',
+          clickupUserId: ''
+        };
+        this.users[email] = user;
+        this.saveUsers();
+        this.saveSession(user);
+        return user;
+      }
+      login(email, password) {
+        const u = this.users[email];
+        if (!u || u.password !== password) throw new Error('Email o contraseña incorrectos');
+        this.saveSession(u);
+        return u;
+      }
+    }
+
+    const userManager = new UserManager();
+
+    // Si ya hay sesión activa, ir directo al formulario
+    (function autoRedirectIfSession(){
+      if (userManager.session) {
+        window.location.href = 'formulario.html';
+      }
+    })();
+
+    function register() {
+      const name = document.getElementById('regName').value.trim();
+      const email = document.getElementById('regEmail').value.trim();
+      const password = document.getElementById('regPassword').value;
+      const box = document.getElementById('regMsg');
+      box.innerHTML = '';
+      try {
+        userManager.register(name, email, password);
+        box.innerHTML = '<div class="ok">✅ Cuenta creada y sesión iniciada</div>';
+        // Redirigir al formulario
+        window.location.href = 'formulario.html';
+      } catch (e) {
+        box.innerHTML = `<div class="err">❌ ${e.message}</div>`;
+      }
+    }
+
+    function login() {
+      const email = document.getElementById('logEmail').value.trim();
+      const password = document.getElementById('logPassword').value;
+      const box = document.getElementById('logMsg');
+      box.innerHTML = '';
+      try {
+        userManager.login(email, password);
+        box.innerHTML = '<div class="ok">✅ Sesión iniciada</div>';
+        // Redirigir al formulario
+        window.location.href = 'formulario.html';
+      } catch (e) {
+        box.innerHTML = `<div class="err">❌ ${e.message}</div>`;
+      }
+    }
+  </script>
+</body>
+</html>
